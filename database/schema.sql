@@ -1,14 +1,7 @@
 -- ================================================================
 -- CodeCraft Online Coding Platform - Database Schema
--- Import this file using phpMyAdmin or MySQL CLI:
---   mysql -u root -p < schema.sql
+-- HOSTINGER VERSION: Import via phpMyAdmin into u966260443_hanisika
 -- ================================================================
-
-CREATE DATABASE IF NOT EXISTS codecraft_db
-  CHARACTER SET utf8mb4
-  COLLATE utf8mb4_unicode_ci;
-
-USE codecraft_db;
 
 -- ── Code Executions Log ──────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS code_executions (
@@ -43,6 +36,7 @@ CREATE TABLE IF NOT EXISTS snippets (
   INDEX idx_is_public   (is_public),
   INDEX idx_created_at  (created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 -- ── Language Stats View ──────────────────────────────────────────
 CREATE OR REPLACE VIEW language_stats AS
 SELECT
