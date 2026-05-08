@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CodeCraft — Online Compiler & IDE</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect width=%22100%22 height=%22100%22 rx=%2220%22 fill=%22%231f6feb%22/><text x=%2250%22 y=%2268%22 font-family=%22sans-serif%22 font-size=%2245%22 font-weight=%22bold%22 fill=%22white%22 text-anchor=%22middle%22>CC</text></svg>" />
+  <meta name="description" content="Run Java, Python, C++, C, C#, JavaScript, PHP online." />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/style.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/codemirror.min.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/theme/dracula.min.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/theme/eclipse.min.css">
+</head>
+<body>
+
+<div id="app">
+
+  <!-- ── TOP BAR ── -->
+  <header id="topbar">
+    <a href="#" class="logo">
+      <div class="logo-icon">CC</div>
+      <span class="logo-text">Code<span>Craft</span></span>
+    </a>
+
+    <div class="topbar-center">
+      <div id="lang-tabs" class="lang-tabs"></div>
+    </div>
+
+    <div class="topbar-actions">
+      <!-- Backend live status indicator -->
+      <div id="backend-status" title="Backend connection status">
+        <span class="dot"></span>
+        <span>Connecting…</span>
+      </div>
+
+      <button class="btn-secondary" id="btn-reset" title="Reset to default code">
+        <span>↺</span><span class="btn-label">Reset</span>
+      </button>
+      <button class="btn-icon" id="btn-copy" title="Copy code">📋</button>
+      <button class="btn-icon" id="btn-clear" title="Clear editor">🗑</button>
+      <button class="btn-secondary" id="btn-save" title="Save & Share">
+        <span>🔗</span><span class="btn-label">Share</span>
+      </button>
+      <button class="btn-run" id="run-btn">
+        <span class="run-icon">▶</span> Run
+      </button>
+      <button class="btn-secondary" id="btn-ask-ai" title="Get AI Help" style="border-color: #a371f7; color: #a371f7;">
+        <span>✨</span><span class="btn-label">Ask AI</span>
+      </button>
+      
+    
+    </div>
+  </header>
+
+  <!-- ── SIDEBAR ── -->
+  <aside id="sidebar"></aside>
+
+  <!-- ── MAIN ── -->
+  <main id="main">
+
+    <!-- Editor Pane -->
+    <section id="editor-pane">
+      <div class="editor-topbar">
+        <div class="editor-breadcrumb">
+          <span>~/codecraft</span>
+          <span style="color:var(--text-muted)">/</span>
+          <span class="editor-filename" id="editor-filename">main.py</span>
+          <span class="lang-badge" id="editor-lang-badge">Python</span>
+        </div>
+        <div class="editor-meta">
+          <span id="editor-lines">1 lines</span>
+          <span id="editor-cursor">Ln 1, Col 1</span>
+        </div>
+      </div>
+      <div id="editor-wrapper">
+        <div id="error-overlay"></div>
+        <textarea
+          id="code-editor"
+          spellcheck="false" autocomplete="off"
+          autocorrect="off" autocapitalize="off"
+          placeholder="Write your code here..."
+        ></textarea>
+      </div>
+    </section>
+
+    <div id="resize-handle"></div>
+
+    <!-- Output Pane -->
+    <section id="output-pane">
+      <div class="output-tabs">
+        <button class="output-tab active" data-tab="output">
+          Output <span class="tab-badge" id="tab-badge-output">!</span>
+        </button>
+        <button class="output-tab" data-tab="stdin">Input</button>
+        <button class="output-tab" data-tab="info">Details</button>
+      </div>
+
+      <div class="exec-status" id="exec-status">
+        <span>◉</span>&nbsp;Ready — write code and press Run
+      </div>
+
+      <div class="output-content">
+        <!-- Output Panel -->
+        <div class="output-panel active" id="output-panel">
+          <div id="output-terminal"></div>
+        </div>
+
+        <!-- Stdin Panel -->
+        <div class="output-panel" id="stdin-panel">
+          <label for="stdin-input">Standard Input (stdin)</label>
+          <textarea id="stdin-input"
+            placeholder="Enter input values here, one per line...&#10;&#10;Example:&#10;John&#10;25"
+            spellcheck="false"></textarea>
+          <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">
+            This will be passed to your program's stdin when you click Run.
+          </div>
+        </div>
+
+        <!-- Info Panel -->
+        <div class="output-panel" id="info-panel">
+          <div class="info-card">
+            <h4>⚡ Execution Details</h4>
+            <div class="info-stat"><span class="label">Language</span><span class="value" id="info-lang">—</span></div>
+            <div class="info-stat"><span class="label">Execution Time</span><span class="value" id="info-time">—</span></div>
+            <div class="info-stat"><span class="label">Judge0 Time</span><span class="value" id="info-j0-time">—</span></div>
+            <div class="info-stat"><span class="label">Memory Used</span><span class="value" id="info-memory">—</span></div>
+            <div class="info-stat"><span class="label">Exit Code</span><span class="value" id="info-exit">—</span></div>
+            <div class="info-stat"><span class="label">Status</span><span class="value" id="info-status">—</span></div>
+            <div class="info-stat"><span class="label">Output Lines</span><span class="value" id="info-lines-out">—</span></div>
+            <div class="info-stat"><span class="label">Errors</span><span class="value" id="info-errors">—</span></div>
+          </div>
+          <div class="info-card">
+            <h4>⌨ Keyboard Shortcuts</h4>
+            <div class="info-stat"><span class="label">Run code</span><span class="value"><kbd class="kbd">Ctrl</kbd> + <kbd class="kbd">Enter</kbd></span></div>
+            <div class="info-stat"><span class="label">Toggle comment</span><span class="value"><kbd class="kbd">Ctrl</kbd> + <kbd class="kbd">/</kbd></span></div>
+            <div class="info-stat"><span class="label">Indent</span><span class="value"><kbd class="kbd">Tab</kbd></span></div>
+            <div class="info-stat"><span class="label">Copy code</span><span class="value"><kbd class="kbd">Ctrl</kbd> + <kbd class="kbd">C</kbd></span></div>
+          </div>
+          <div class="info-card">
+            <h4>🌐 Supported Languages</h4>
+            <div class="info-stat"><span class="label">☕ Java</span><span class="value green">Online</span></div>
+            <div class="info-stat"><span class="label">🐍 Python</span><span class="value green">Online</span></div>
+            <div class="info-stat"><span class="label">⚡ C++</span><span class="value green">Online</span></div>
+            <div class="info-stat"><span class="label">🔧 C</span><span class="value green">Online</span></div>
+            <div class="info-stat"><span class="label">💜 C#</span><span class="value green">Online</span></div>
+            <div class="info-stat"><span class="label">🌐 JavaScript</span><span class="value green">Online</span></div>
+            <div class="info-stat"><span class="label">🐘 PHP</span><span class="value green">Online</span></div>
+          </div>
+        </div>
+      </div><!-- /output-content -->
+
+      <div id="status-bar">
+        <div class="status-left">
+          <span>⬡ CodeCraft</span>
+          <span id="status-lang">Python</span>
+        </div>
+        <div class="status-right">
+          <span id="status-chars">0 chars</span>
+          <span id="status-msg"></span>
+        </div>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<div class="modal-overlay" id="settings-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 class="modal-title">⚙ Editor Settings</h3>
+      <button class="modal-close" aria-label="Close">✕</button>
+    </div>
+    <div class="form-group">
+      <label for="setting-font-size">Font Size (px)</label>
+      <input type="number" id="setting-font-size" value="15" min="10" max="30" />
+    </div>
+    <div class="form-group">
+      <label for="setting-tab-size">Tab Size (spaces)</label>
+      <select id="setting-tab-size">
+        <option value="2">2</option>
+        <option value="4" selected>4</option>
+        <option value="8">8</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <input type="checkbox" id="setting-line-wrap" checked style="width:16px;height:16px;cursor:pointer;" />
+        <label for="setting-line-wrap" style="font-size:13px;color:var(--text-secondary);cursor:pointer;margin:0;">
+          Enable Line Wrapping
+        </label>
+      </div>
+    </div>
+    <button class="btn-primary" id="btn-save-settings" style="margin-top: 10px;">Apply & Save</button>
+  </div>
+</div>
+<div class="modal-overlay" id="help-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 class="modal-title">❓ Help & Shortcuts</h3>
+      <button class="modal-close" aria-label="Close">✕</button>
+    </div>
+    
+    <div style="margin-bottom: 20px;">
+      <h4 style="font-size: 13px; color: var(--accent-blue); margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.5px;">⌨ Keyboard Shortcuts</h4>
+      <div style="display: grid; gap: 10px; font-size: 13px; color: var(--text-secondary);">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <span>Run Code</span> <span><kbd class="kbd">Ctrl</kbd> + <kbd class="kbd">Enter</kbd></span>
+        </div>
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <span>Toggle Comment</span> <span><kbd class="kbd">Ctrl</kbd> + <kbd class="kbd">/</kbd></span>
+        </div>
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <span>Indent Code</span> <span><kbd class="kbd">Tab</kbd></span>
+        </div>
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <span>Copy All Code</span> <span><kbd class="kbd">Ctrl</kbd> + <kbd class="kbd">C</kbd></span>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <h4 style="font-size: 13px; color: var(--accent-blue); margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.5px;">💡 Pro Tips</h4>
+      <ul style="font-size: 12px; color: var(--text-secondary); padding-left: 18px; line-height: 1.7; margin: 0;">
+        <li>Switch languages using the top tabs. Your code is automatically saved for each language!</li>
+        <li>Click the <strong>⚙ Settings</strong> icon to adjust your preferred font size and line wrapping.</li>
+        <li>Use the <strong>📂 Examples</strong> folder to instantly load pre-written templates.</li>
+      </ul>
+    </div>
+  </div>
+</div>
+<!-- ── MODALS ── -->
+<div class="modal-overlay" id="save-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 class="modal-title">🔗 Save & Share Snippet</h3>
+      <button class="modal-close" aria-label="Close">✕</button>
+    </div>
+    <div class="form-group">
+      <label for="snippet-title">Snippet Title</label>
+      <input type="text" id="snippet-title" placeholder="My awesome code..." maxlength="120" />
+    </div>
+    <div class="form-group">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <input type="checkbox" id="snippet-public" checked style="width:16px;height:16px;cursor:pointer;" />
+        <label for="snippet-public" style="font-size:13px;color:var(--text-secondary);cursor:pointer;margin:0;">
+          Make this snippet public
+        </label>
+      </div>
+    </div>
+    <button class="btn-primary" id="btn-do-save">Save Snippet</button>
+  </div>
+</div>
+<div class="modal-overlay" id="examples-modal">
+  <div class="modal" style="max-width: 600px;">
+    <div class="modal-header">
+      <h3 class="modal-title">📂 Load Example Code</h3>
+      <button class="modal-close" aria-label="Close">✕</button>
+    </div>
+    <p style="font-size: 13px; color: var(--text-secondary); margin-bottom: 10px;">
+      Select an example below to instantly load it into the editor.
+    </p>
+    <div class="examples-grid" id="examples-container">
+      </div>
+  </div>
+</div>
+
+
+<div class="modal-overlay" id="share-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 class="modal-title">✅ Snippet Saved!</h3>
+      <button class="modal-close" aria-label="Close">✕</button>
+    </div>
+    <p style="color:var(--text-secondary);font-size:13px;margin-bottom:14px;">
+      Share this link with anyone:
+    </p>
+    <div class="share-url-box">
+      <input type="text" id="share-url" readonly />
+      <button class="btn-secondary" id="btn-copy-url">Copy</button>
+      <button class="btn-secondary" id="btn-share-whatsapp" style="background: #25D366; color: white; border: none; font-weight: bold;">
+        WhatsApp
+      </button>
+    </div>
+    <div style="display: flex; gap: 8px; margin-top: 15px;">
+      <button class="btn-primary" id="btn-web-share" style="background: #1f6feb;">Share via...</button>
+      <a id="btn-whatsapp-share" target="_blank" class="btn-secondary" style="text-decoration:none; display:flex; align-items:center; justify-content:center; flex:1;">WhatsApp</a>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="ai-modal">
+  <div class="modal" style="max-width: 600px; width: 95%; display: flex; flex-direction: column; height: 75vh;">
+    <div class="modal-header">
+      <h3 class="modal-title" style="color: #a371f7;">✨ AI Code Assistant</h3>
+      <button class="modal-close" aria-label="Close">✕</button>
+    </div>
+    
+    <div id="ai-chat-history" style="flex-grow: 1; overflow-y: auto; padding: 14px; background: var(--bg-editor); border-radius: 6px; border: 1px solid var(--border); font-family: var(--font-main); font-size: 13.5px; display: flex; flex-direction: column; gap: 15px; margin-bottom: 15px;">
+    </div>
+
+    <div style="display: flex; gap: 10px;">
+      <input type="text" id="ai-chat-input" placeholder="Ask a follow up question..." style="flex-grow: 1; padding: 12px; border-radius: 4px; border: 1px solid var(--border); background: var(--bg-tertiary); color: var(--text-primary); outline: none;">
+      <button id="btn-ai-send" class="btn-primary" style="background: #a371f7; border: none; padding: 0 20px;">Send</button>
+    </div>
+  </div>
+</div>
+
+
+<div id="toast-container"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/codemirror.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/addon/edit/closebrackets.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/addon/comment/comment.min.js"></script>
+
+ <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/mode/python/python.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/mode/javascript/javascript.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/mode/clike/clike.min.js"></script>
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/mode/xml/xml.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/mode/css/css.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/mode/htmlmixed/htmlmixed.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/mode/php/php.min.js"></script>
+  
+<script src="js/app.js"></script>
+
+</body>
+</html>
