@@ -1,5 +1,5 @@
 // frontend/js/app.js
-// ── CodeCraft Main Application ────────────────────────────────────
+// ── MakeLabs Main Application ────────────────────────────────────
 
 const API_BASE = '/api';
 
@@ -7,12 +7,13 @@ const API_BASE = '/api';
 const state = {
   currentLang: 'python',
   isRunning: false,
+  pendingStdin: '',
   executionTime: null,
   charCount: 0,
   lineCount: 1,
   editorHistory: {},
   resizing: false,
-  theme: 'dark', // Default state
+  theme: 'dark',
 };
 
 // ── Language Definitions ──────────────────────────────────────────
@@ -35,7 +36,7 @@ const LANGUAGES = {
   },
   python: {
     id: 'python', name: 'Python', icon: '🐍', color: '#3572A5', ext: '.py',
-    defaultCode: `# Python - CodeCraft Online Compiler
+    defaultCode: `# Python - MakeLabs Online Compiler
 print("Hello, World!")
 
 # List comprehension
@@ -44,7 +45,7 @@ print("Squares:", squares)
 
 # Function example
 def greet(name):
-    return f"Welcome to CodeCraft, {name}!"
+    return f"Welcome to MakeLabs, {name}!"
 
 print(greet("Developer"))`,
   },
@@ -107,7 +108,7 @@ class Program {
   },
   javascript: {
     id: 'javascript', name: 'JavaScript', icon: '🌐', color: '#F7DF1E', ext: '.js',
-    defaultCode: `// JavaScript - CodeCraft Online Compiler
+    defaultCode: `// JavaScript - MakeLabs Online Compiler
 console.log("Hello, World!");
 
 // Arrow functions & array methods
@@ -122,7 +123,7 @@ console.log("Sum:", sum);
 
 // Async example
 const greet = async (name) => {
-    return \`Welcome to CodeCraft, \${name}!\`;
+    return \`Welcome to MakeLabs, \${name}!\`;
 };
 
 greet("Developer").then(msg => console.log(msg));`,
@@ -144,7 +145,7 @@ function factorial($n) {
 }
 
 echo "5! = " . factorial(5) . "\\n";
-echo "Welcome to CodeCraft!\\n";
+echo "Welcome to MakeLabs!\\n";
 ?>`,
   },
 };
@@ -152,15 +153,14 @@ echo "Welcome to CodeCraft!\\n";
 // ── Example Snippets ──────────────────────────────────────────────
 const EXAMPLES = [
   { title: 'FizzBuzz', lang: 'python', code: 'for i in range(1, 21):\n    if i % 15 == 0:\n        print("FizzBuzz")\n    elif i % 3 == 0:\n        print("Fizz")\n    elif i % 5 == 0:\n        print("Buzz")\n    else:\n        print(i)' },
-  { title: 'Palindrome Checker', lang: 'javascript', code: 'function isPalindrome(str) {\n  const clean = str.replace(/[^A-Za-z0-9]/g, "").toLowerCase();\n  return clean === clean.split("").reverse().join("");\n}\n\nconsole.log(isPalindrome("A man, a plan, a canal: Panama"));\nconsole.log(isPalindrome("CodeCraft"));' },
+  { title: 'Palindrome Checker', lang: 'javascript', code: 'function isPalindrome(str) {\n  const clean = str.replace(/[^A-Za-z0-9]/g, "").toLowerCase();\n  return clean === clean.split("").reverse().join("");\n}\n\nconsole.log(isPalindrome("A man, a plan, a canal: Panama"));\nconsole.log(isPalindrome("MakeLabs"));' },
   { title: 'Fibonacci Sequence', lang: 'java', code: 'public class Main {\n  public static void main(String[] args) {\n    int n = 10, first = 0, second = 1;\n    System.out.println("Fibonacci Series till " + n + " terms:");\n    for (int i = 1; i <= n; ++i) {\n      System.out.print(first + ", ");\n      int nextTerm = first + second;\n      first = second;\n      second = nextTerm;\n    }\n  }\n}' },
   { title: 'Selection Sort', lang: 'cpp', code: '#include <iostream>\nusing namespace std;\n\nvoid selectionSort(int arr[], int n) {\n  for (int i = 0; i < n-1; i++) {\n    int min_idx = i;\n    for (int j = i+1; j < n; j++)\n      if (arr[j] < arr[min_idx])\n        min_idx = j;\n    swap(arr[min_idx], arr[i]);\n  }\n}\n\nint main() {\n  int arr[] = {64, 25, 12, 22, 11};\n  int n = sizeof(arr)/sizeof(arr[0]);\n  selectionSort(arr, n);\n  cout << "Sorted array: ";\n  for (int i=0; i < n; i++) cout << arr[i] << " ";\n  return 0;\n}' },
   { title: 'REST API Fetch', lang: 'php', code: '<?php\n$url = "https://jsonplaceholder.typicode.com/users/1";\n$response = file_get_contents($url);\n$data = json_decode($response, true);\n\necho "Name: " . $data["name"] . "\\n";\necho "Email: " . $data["email"] . "\\n";\necho "Company: " . $data["company"]["name"] . "\\n";\n?>' },
   { title: 'LINQ Query', lang: 'csharp', code: 'using System;\nusing System.Collections.Generic;\nusing System.Linq;\n\nclass Program {\n  static void Main() {\n    var scores = new List<int> { 97, 92, 81, 60, 100, 75, 84 };\n    var highScores = scores.Where(s => s > 80).OrderByDescending(s => s);\n\n    Console.WriteLine("Scores above 80:");\n    foreach (var score in highScores) {\n      Console.WriteLine(score);\n    }\n  }\n}' }
 ];
 
-// ── Settings Functionality ────────────────────────────────────────
-
+// ── Settings ──────────────────────────────────────────────────────
 const DEFAULT_SETTINGS = {
   fontSize: 15,
   tabSize: 4,
@@ -168,42 +168,32 @@ const DEFAULT_SETTINGS = {
 };
 
 function openSettingsModal() {
-  // Populate form with current saved settings
   const settings = JSON.parse(localStorage.getItem('cc-settings')) || DEFAULT_SETTINGS;
-  
   $('setting-font-size').value = settings.fontSize;
   $('setting-tab-size').value = settings.tabSize;
   $('setting-line-wrap').checked = settings.lineWrap;
-  
   openModal('settings-modal');
 }
 
 function applySettings(settings) {
   if (!cmEditor) return;
-  
-  // Apply tab and wrap settings to CodeMirror
   cmEditor.setOption('tabSize', parseInt(settings.tabSize));
   cmEditor.setOption('indentUnit', parseInt(settings.tabSize));
   cmEditor.setOption('lineWrapping', settings.lineWrap);
-  
-  // Force the Font Size to override the CSS !important rule
   const cmWrapper = document.querySelector('.CodeMirror');
   if (cmWrapper) {
     cmWrapper.style.setProperty('font-size', `${settings.fontSize}px`, 'important');
   }
-  
-  // Force editor to redraw with new dimensions
   cmEditor.refresh();
 }
+
 function loadSettings() {
   const settings = JSON.parse(localStorage.getItem('cc-settings')) || DEFAULT_SETTINGS;
   applySettings(settings);
 }
 
-// Bind the save button
+// Bind settings save button
 document.addEventListener('DOMContentLoaded', () => {
-  // Existing DOMContentLoaded logic...
-  
   const saveBtn = $('btn-save-settings');
   if (saveBtn) {
     saveBtn.addEventListener('click', () => {
@@ -212,16 +202,14 @@ document.addEventListener('DOMContentLoaded', () => {
         tabSize: parseInt($('setting-tab-size').value) || 4,
         lineWrap: $('setting-line-wrap').checked
       };
-      
-      // Save to browser and apply
       localStorage.setItem('cc-settings', JSON.stringify(newSettings));
       applySettings(newSettings);
-      
       closeModal('settings-modal');
       showToast('Settings saved!', 'success');
     });
   }
 });
+
 // ── DOM Refs ──────────────────────────────────────────────────────
 const $ = id => document.getElementById(id);
 const $$ = sel => document.querySelectorAll(sel);
@@ -229,7 +217,7 @@ const $$ = sel => document.querySelectorAll(sel);
 // ── Init ──────────────────────────────────────────────────────────
 let cmEditor;
 document.addEventListener('DOMContentLoaded', () => {
-  
+
   cmEditor = CodeMirror.fromTextArea(document.getElementById('code-editor'), {
     mode: 'python',
     theme: 'dracula',
@@ -238,13 +226,11 @@ document.addEventListener('DOMContentLoaded', () => {
     indentUnit: 4,
     tabSize: 4,
     lineWrapping: true,
-
     extraKeys: {
       "Ctrl-/": "toggleComment",
-      "Cmd-/": "toggleComment" // Supports Mac users
+      "Cmd-/": "toggleComment"
     },
   });
-
 
   buildLangTabs();
   buildSidebarBtns();
@@ -256,7 +242,6 @@ document.addEventListener('DOMContentLoaded', () => {
   showWelcomeOutput();
   injectLangTabStyles();
 
-  // Load saved theme preference on startup
   const savedTheme = localStorage.getItem('cc-theme');
   if (savedTheme === 'light') {
     document.body.classList.add('light-mode');
@@ -267,7 +252,7 @@ document.addEventListener('DOMContentLoaded', () => {
   setInterval(checkBackend, 30000);
 });
 
-// ── Inject lang-tabs scroll styles (fixes clipping bug) ──────────
+// ── Inject lang-tabs styles ───────────────────────────────────────
 function injectLangTabStyles() {
   if (document.getElementById('_codecraft_tab_fix')) return;
   const style = document.createElement('style');
@@ -312,15 +297,9 @@ function injectLangTabStyles() {
       border-color: rgba(88,166,255,0.35) !important;
       color: #58a6ff !important;
     }
-
-    /* Syntax Error Highlighting */
-    #editor-wrapper {
-      position: relative !important;
-    }
+    #editor-wrapper { position: relative !important; }
     .error-line-marker {
-      position: absolute;
-      left: 0;
-      width: 100%;
+      position: absolute; left: 0; width: 100%;
       background: rgba(248, 81, 73, 0.18);
       border-left: 3px solid #f85149;
       pointer-events: none;
@@ -330,86 +309,44 @@ function injectLangTabStyles() {
       z-index: 2 !important;
       background: transparent !important;
     }
-    #editor-wrapper {
-      background: var(--bg-editor, #0d1117) !important;
-    }
-
-    /* Error squiggle panel in output */
-    .error-squiggle-panel {
-      padding: 10px 14px;
-    }
+    #editor-wrapper { background: var(--bg-editor, #0d1117) !important; }
+    .error-squiggle-panel { padding: 10px 14px; }
     .squiggle-item {
-      display: flex;
-      align-items: flex-start;
-      gap: 10px;
-      padding: 7px 10px;
-      margin-bottom: 5px;
-      border-radius: 6px;
-      background: rgba(248,81,73,0.08);
-      border-left: 3px solid #f85149;
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 11px;
-      line-height: 1.6;
-      color: #f85149;
-      cursor: pointer;
-      transition: background 0.15s;
+      display: flex; align-items: flex-start; gap: 10px;
+      padding: 7px 10px; margin-bottom: 5px; border-radius: 6px;
+      background: rgba(248,81,73,0.08); border-left: 3px solid #f85149;
+      font-family: 'JetBrains Mono', monospace; font-size: 11px;
+      line-height: 1.6; color: #f85149; cursor: pointer; transition: background 0.15s;
     }
-    .squiggle-item:hover {
-      background: rgba(248,81,73,0.16);
-    }
-    .squiggle-item .sq-line {
-      font-weight: 700;
-      min-width: 50px;
-      color: #ff7b72;
-    }
-    .squiggle-item .sq-msg {
-      color: #e6edf3;
-      font-family: 'Poppins', sans-serif;
-      font-size: 11px;
-    }
-    .squiggle-item .sq-code {
-      display: block;
-      margin-top: 3px;
-      color: #8b949e;
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 10px;
-    }
+    .squiggle-item:hover { background: rgba(248,81,73,0.16); }
+    .squiggle-item .sq-line { font-weight: 700; min-width: 50px; color: #ff7b72; }
+    .squiggle-item .sq-msg { color: #e6edf3; font-family: 'Poppins', sans-serif; font-size: 11px; }
+    .squiggle-item .sq-code { display: block; margin-top: 3px; color: #8b949e; font-family: 'JetBrains Mono', monospace; font-size: 10px; }
     .error-badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-      background: rgba(248,81,73,0.15);
-      color: #f85149;
-      border: 1px solid rgba(248,81,73,0.3);
-      border-radius: 10px;
-      padding: 1px 8px;
-      font-size: 10px;
-      font-weight: 600;
-      margin-left: 8px;
-      font-family: 'Poppins', sans-serif;
+      display: inline-flex; align-items: center; gap: 4px;
+      background: rgba(248,81,73,0.15); color: #f85149;
+      border: 1px solid rgba(248,81,73,0.3); border-radius: 10px;
+      padding: 1px 8px; font-size: 10px; font-weight: 600;
+      margin-left: 8px; font-family: 'Poppins', sans-serif;
     }
   `;
   document.head.appendChild(style);
 }
 
-// ── Backend Health Check ──────────────────────────────────────
+// ── Backend Health Check ──────────────────────────────────────────
 async function checkBackend() {
   const pill = $('backend-status');
   if (!pill) return;
-  
   const label = pill.querySelector('span:last-child');
   try {
     const r = await fetch(`${API_BASE}/health`, { signal: AbortSignal.timeout(4000) });
     const d = await r.json();
-    
     if (d.success) {
       pill.classList.remove('offline');
       pill.classList.add('online');
       label.textContent = 'Backend Online';
       state.backendOnline = true;
-    } else {
-      throw new Error('Health check failed');
-    }
+    } else { throw new Error('Health check failed'); }
   } catch (err) {
     pill.classList.remove('online');
     pill.classList.add('offline');
@@ -417,6 +354,7 @@ async function checkBackend() {
     state.backendOnline = false;
   }
 }
+
 // ── Language Tabs ─────────────────────────────────────────────────
 function buildLangTabs() {
   const container = $('lang-tabs');
@@ -434,20 +372,14 @@ function buildLangTabs() {
 function setLanguage(langId) {
   const lang = LANGUAGES[langId];
   if (!lang) return;
-
-  // FIX: Only save to history if we are switching to a DIFFERENT language
   if (state.currentLang && state.currentLang !== langId && cmEditor) {
     state.editorHistory[state.currentLang] = cmEditor.getValue();
   }
-
   state.currentLang = langId;
   const savedCode = state.editorHistory[langId];
   const newCode = savedCode !== undefined ? savedCode : lang.defaultCode;
-  
   if (cmEditor) {
     cmEditor.setValue(newCode);
-    
-    // Map your lang IDs to CodeMirror modes
     const modeMap = {
       python: 'python',
       javascript: 'javascript',
@@ -459,12 +391,10 @@ function setLanguage(langId) {
     };
     cmEditor.setOption('mode', modeMap[langId]);
   }
-
   $$('.lang-tab').forEach(t => t.classList.toggle('active', t.dataset.lang === langId));
   $('editor-filename').textContent = `main${lang.ext}`;
   $('editor-lang-badge').textContent = lang.name;
   $('status-lang').textContent = lang.name;
-
   clearErrorHighlights();
   updateEditorMeta();
   clearOutput();
@@ -472,22 +402,18 @@ function setLanguage(langId) {
 
 // ── Editor Events ─────────────────────────────────────────────────
 function bindEditorEvents() {
-  // CodeMirror handles keystrokes for us. We just need to listen for changes.
   cmEditor.on('change', () => {
     updateEditorMeta();
     state.editorHistory[state.currentLang] = cmEditor.getValue();
     scheduleLint();
   });
-
   cmEditor.on('cursorActivity', updateEditorMeta);
 }
 
 function updateEditorMeta() {
   if (!cmEditor) return;
-  
   const val = cmEditor.getValue();
-  const cursor = cmEditor.getCursor(); // gets {line, ch}
-  
+  const cursor = cmEditor.getCursor();
   $('editor-lines').textContent = `${cmEditor.lineCount()} lines`;
   $('editor-cursor').textContent = `Ln ${cursor.line + 1}, Col ${cursor.ch + 1}`;
   $('status-chars').textContent = `${val.length} chars`;
@@ -519,7 +445,8 @@ async function runCode() {
     <div class="output-line system pulse">● Waiting for output</div>
   `;
 
-  const stdin = $('stdin-input') ? $('stdin-input').value : '';
+  const stdin = state.pendingStdin || '';
+  // state.pendingStdin = '';
 
   try {
     const response = await fetch(`${API_BASE}/code/run`, {
@@ -531,11 +458,9 @@ async function runCode() {
         stdin,
       }),
     });
-
     const data = await response.json();
     const elapsed = Date.now() - startTime;
     state.executionTime = elapsed;
-
     if (data.success) {
       renderOutput(data.output, data.error, elapsed, data.exit_code);
     } else {
@@ -551,7 +476,75 @@ async function runCode() {
   }
 }
 
+// ── Stdin Bar (Programiz-style) ───────────────────────────────────
+function showStdinBar() {
+  const terminal = $('output-terminal');
+  const oldBar = $('inline-input-prompt');
+  if (oldBar) oldBar.style.display = 'none';
+
+  const lines = terminal.querySelectorAll('.output-line:not(.system)');
+  const lastLine = lines[lines.length - 1];
+
+  // --- NEW: Capture the prompt text ---
+  const promptText = lastLine ? lastLine.textContent : '';
+
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.className = 'terminal-inline-input';
+  input.autocomplete = 'off';
+  input.spellcheck = false;
+
+  if (lastLine) {
+    lastLine.style.display = 'flex';
+    lastLine.style.alignItems = 'center';
+    lastLine.appendChild(input);
+  } else {
+    const div = document.createElement('div');
+    div.className = 'output-line';
+    div.style.display = 'flex';
+    div.appendChild(input);
+    terminal.appendChild(div);
+  }
+
+  setTimeout(() => input.focus(), 50);
+
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      const val = input.value;
+
+      const span = document.createElement('span');
+      span.style.color = 'var(--accent-green)';
+      span.style.marginLeft = '6px';
+      span.textContent = val;
+      input.replaceWith(span);
+
+      // --- NEW: Save the typed input mapping to its prompt ---
+      state.inputHistory = state.inputHistory || [];
+      state.inputHistory.push({ prompt: promptText, value: val });
+
+      state.pendingStdin = (state.pendingStdin || '') + val + '\n';
+      runCode();
+    }
+  });
+}
+
+function hideStdinBar() {
+  // Old bottom bar-a hide pandrom
+  const wrap = $('inline-input-prompt');
+  if (wrap) wrap.style.display = 'none';
+  
+  // Execution mudinja aprm leftover inputs edhachum irundha adha disable pandrom
+  $$('.terminal-inline-input').forEach(el => el.disabled = true);
+}
+function hideStdinBar() {
+  const wrap = $('inline-input-prompt');
+  if (wrap) wrap.style.display = 'none';
+}
+
+// ── Render Output ─────────────────────────────────────────────────
 function renderOutput(stdout, stderr, elapsed, exitCode) {
+  hideStdinBar();
   const terminal = $('output-terminal');
   terminal.innerHTML = '';
 
@@ -565,8 +558,47 @@ function renderOutput(stdout, stderr, elapsed, exitCode) {
   divider.textContent = '─'.repeat(40);
   terminal.appendChild(divider);
 
-  if (stdout) {
-    stdout.split('\n').forEach(line => {
+  // --- NEW: Reconstruct stdout to separate prompt and result into different lines ---
+  let displayStdout = stdout || '';
+  if (state.inputHistory && state.inputHistory.length > 0) {
+    state.inputHistory.forEach(item => {
+      if (item.prompt) {
+        // Insert the user's input and a newline (\n) right after the prompt
+        displayStdout = displayStdout.replace(item.prompt, item.prompt + item.value + '\n');
+      }
+    });
+  }
+
+  // ── NEW LOGIC: Detect missing input crashes ──
+  const isEofError = stderr && (
+    stderr.includes('NoSuchElementException') || // Java
+    stderr.includes('EOFError') ||               // Python
+    (state.currentLang === 'csharp' && stderr.includes('NullReferenceException')) // C#
+  );
+
+  // Note: We use displayStdout here instead of stdout
+  const looksLikePrompt = isEofError || (displayStdout && !displayStdout.endsWith('\n') && !stderr && exitCode === 0);
+
+  if (looksLikePrompt) {
+    // Print only displayStdout (the prompt), hide the crash error
+    if (displayStdout) {
+      displayStdout.split('\n').forEach(line => {
+        const el = document.createElement('div');
+        el.className = 'output-line';
+        el.textContent = line;
+        terminal.appendChild(el);
+      });
+    }
+    showStdinBar();
+    showExecStatus('running', 'Waiting for input...');
+    updateStatusBar('normal', '⌨ Waiting for input…');
+    return; // Stop here! Don't print the error.
+  }
+
+  // ── Normal Output Rendering ──
+  // Note: We use displayStdout here instead of stdout
+  if (displayStdout) {
+    displayStdout.split('\n').forEach(line => {
       const el = document.createElement('div');
       el.className = 'output-line';
       el.textContent = line;
@@ -603,20 +635,58 @@ function renderOutput(stdout, stderr, elapsed, exitCode) {
   }
 
   if (exitCode === 0) {
+    hideStdinBar();
     showExecStatus('success', `Finished in ${elapsed}ms`);
     updateStatusBar('success', `✓ Ran successfully in ${elapsed}ms`);
     $('tab-badge-output').classList.remove('visible');
     clearErrorHighlights();
+
+    const successLine = document.createElement('div');
+    successLine.className = 'output-line success-banner';
+    successLine.textContent = '=== Code Execution Successful ===';
+    terminal.appendChild(successLine);
   } else {
+    hideStdinBar();
     showExecStatus('error', `Exited with code ${exitCode}`);
     updateStatusBar('error', `✗ Exit code ${exitCode}`);
     $('tab-badge-output').classList.add('visible');
   }
 
+  // Pass original stdout to info panel so line count remains accurate
   updateInfoPanel(elapsed, exitCode, stdout, stderr);
 }
+  // ── KEY LOGIC: detect stdin prompt vs finished output ──
+  // If stdout ends without a newline AND no error, it's a prompt like "Enter your name: "
+//   const looksLikePrompt = stdout && !stdout.endsWith('\n') && !stderr && exitCode === 0;
+
+//   if (looksLikePrompt) {
+//     showStdinBar();
+//     showExecStatus('running', 'Waiting for input...');
+//     updateStatusBar('normal', '⌨ Waiting for input…');
+//   } else if (exitCode === 0) {
+//     hideStdinBar();
+//     showExecStatus('success', `Finished in ${elapsed}ms`);
+//     updateStatusBar('success', `✓ Ran successfully in ${elapsed}ms`);
+//     $('tab-badge-output').classList.remove('visible');
+//     clearErrorHighlights();
+
+//     // Show "=== Code Execution Successful ===" like Programiz
+//     const successLine = document.createElement('div');
+//     successLine.className = 'output-line success-banner';
+//     successLine.textContent = '=== Code Execution Successful ===';
+//     terminal.appendChild(successLine);
+//   } else {
+//     hideStdinBar();
+//     showExecStatus('error', `Exited with code ${exitCode}`);
+//     updateStatusBar('error', `✗ Exit code ${exitCode}`);
+//     $('tab-badge-output').classList.add('visible');
+//   }
+
+//   updateInfoPanel(elapsed, exitCode, stdout, stderr);
+// }
 
 function renderError(msg, elapsed) {
+  hideStdinBar();
   const terminal = $('output-terminal');
   terminal.innerHTML = `
     <div class="output-line system">▶ ${LANGUAGES[state.currentLang].name} | ${elapsed}ms</div>
@@ -629,11 +699,12 @@ function renderError(msg, elapsed) {
 }
 
 function renderApiError(elapsed) {
+  hideStdinBar();
   const terminal = $('output-terminal');
   terminal.innerHTML = `
     <div class="output-line system">▶ ${LANGUAGES[state.currentLang].name} | ${elapsed}ms</div>
     <div class="output-line system">${'─'.repeat(40)}</div>
-    <div class="output-line error">✗ Cannot connect to CodeCraft API server.</div>
+    <div class="output-line error">✗ Cannot connect to MakeLabs API server.</div>
   `;
   showExecStatus('error', 'API server not running');
   updateStatusBar('error', '✗ API offline');
@@ -731,7 +802,6 @@ function syncErrorHighlights() {
   editor._errorLines.forEach(({ line }) => {
     const y = paddingTop + (line - 1) * lineHeight - scrollTop;
     if (y + lineHeight < 0 || y > editor.clientHeight) return;
-
     const marker = document.createElement('div');
     marker.style.cssText = `position: absolute; left: ${paddingLeft}px; top: ${y}px; width: calc(100% - ${paddingLeft}px); height: ${lineHeight}px; background: rgba(248, 81, 73, 0.12); border-left: 3px solid #f85149; box-sizing: border-box;`;
     overlay.appendChild(marker);
@@ -745,7 +815,7 @@ function clearErrorHighlights() {
   if (editor) editor._errorLines = null;
 }
 
-// ── Error Squiggle Panel ──────────────────────────────────────
+// ── Error Squiggle Panel ──────────────────────────────────────────
 function appendErrorSquiggles(terminal, errorLines, stderr) {
   if (!errorLines.length) return;
   const editor = $('code-editor');
@@ -783,12 +853,12 @@ function appendErrorSquiggles(terminal, errorLines, stderr) {
 
 function jumpToLine(lineNum) {
   if (!cmEditor) return;
-  cmEditor.setCursor({line: lineNum - 1, ch: 0});
+  cmEditor.setCursor({ line: lineNum - 1, ch: 0 });
   cmEditor.focus();
   showToast(`Jumped to line ${lineNum}`, 'info');
 }
 
-// ── Live Lint ─────────────────────────────────────────
+// ── Live Lint ─────────────────────────────────────────────────────
 let _lintTimeout = null;
 function scheduleLint() {
   clearLintTimeout();
@@ -803,12 +873,10 @@ function lintCurrentCode() {
   const code = cmEditor.getValue();
   const lang = state.currentLang;
   const errors = [];
-
   if (lang === 'python') errors.push(...lintPython(code));
   else if (lang === 'javascript') errors.push(...lintJavaScript(code));
   else if (lang === 'java') errors.push(...lintJava(code));
   else if (lang === 'php') errors.push(...lintPHP(code));
-
   if (errors.length > 0) highlightErrorLines(errors);
   else clearErrorHighlights();
 }
@@ -859,7 +927,7 @@ function lintPHP(code) {
   return errors.slice(0, 8);
 }
 
-// ── UI Control ──────────────────────────────────────────
+// ── UI Control ────────────────────────────────────────────────────
 function setOutputTab(tabId) {
   $$('.output-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tabId));
   $$('.output-panel').forEach(p => p.classList.toggle('active', p.id === `${tabId}-panel`));
@@ -879,6 +947,7 @@ function updateStatusBar(st = 'normal', msg = null) {
 }
 
 function clearOutput() {
+  hideStdinBar();
   showWelcomeOutput();
   showExecStatus('running', 'Ready');
   $('tab-badge-output').classList.remove('visible');
@@ -890,36 +959,40 @@ function showWelcomeOutput() {
   $('output-terminal').innerHTML = `<div class="output-placeholder"><div class="ph-icon">▷</div><p>Click <strong>Run</strong> to execute</p></div>`;
 }
 
-
-// ── Toggle Theme Functionality ─────────────────────────
+// ── Toggle Theme ──────────────────────────────────────────────────
 function toggleTheme() {
   const body = document.body;
   const isLight = body.classList.toggle('light-mode');
   const themeBtn = Array.from($$('button')).find(b => b.dataset.tooltip === 'Toggle Theme');
-  
   if (isLight) {
     if (themeBtn) themeBtn.innerHTML = '☀️';
     showToast('Switched to Light Theme', 'info');
     localStorage.setItem('cc-theme', 'light');
-    
-    // Switch CodeMirror to the high-contrast Eclipse theme
     if (cmEditor) cmEditor.setOption('theme', 'eclipse');
   } else {
     if (themeBtn) themeBtn.innerHTML = '🌙';
     showToast('Switched to Dark Theme', 'info');
     localStorage.setItem('cc-theme', 'dark');
-    
-    // Switch CodeMirror back to Dark Theme
     if (cmEditor) cmEditor.setOption('theme', 'dracula');
   }
 }
-// ── Event Binding ────────────────────────────────────────────
+
+// ── Event Binding ─────────────────────────────────────────────────
 function bindTopbarActions() {
-  $('run-btn').addEventListener('click', runCode);
+  // Run button — fires immediately, no "need input?" prompt
+  $('run-btn').addEventListener('click', () => {
+    state.pendingStdin = '';
+    state.inputHistory = [];
+    const code = cmEditor ? cmEditor.getValue().trim() : '';
+    
+    if (!code) { showToast('Editor is empty. Write some code first!', 'warning'); return; }
+    setOutputTab('output');
+    runCode();
+  });
+
   const askAiBtn = $('btn-ask-ai');
   if (askAiBtn) {
     askAiBtn.addEventListener('click', () => {
-      console.log("Ask AI button was clicked!"); // This will show in your console!
       askAI();
     });
   }
@@ -931,20 +1004,16 @@ function bindTopbarActions() {
     showToast('Reset to default code', 'info');
   });
 
- $('btn-clear').addEventListener('click', () => {
+  $('btn-clear').addEventListener('click', () => {
     if (!cmEditor.getValue().trim()) {
       showToast('Editor is already empty', 'info');
       return;
     }
-    
-    // Clear everything instantly without the browser popup (alert/confirm)
     cmEditor.setValue('');
     state.editorHistory[state.currentLang] = '';
-    updateEditorMeta(); 
-    clearErrorHighlights(); 
+    updateEditorMeta();
+    clearErrorHighlights();
     clearOutput();
-    
-    // Show the nice toast notification
     showToast('Editor cleared!', 'success');
   });
 
@@ -966,23 +1035,16 @@ function bindTopbarActions() {
     o.addEventListener('click', e => { if (e.target === o) closeModal(o.id); })
   );
 
- $('btn-copy-url').addEventListener('click', () =>
+  $('btn-copy-url').addEventListener('click', () =>
     navigator.clipboard.writeText($('share-url').value).then(() => showToast('URL copied!', 'success'))
   );
 
-  // ADD THESE TWO LISTENERS HERE:
-  
-  // Web Share API (System Share)
   $('btn-web-share').addEventListener('click', async () => {
     try {
-      await navigator.share({
-        title: 'CodeCraft Snippet',
-        url: $('share-url').value
-      });
+      await navigator.share({ title: 'MakeLabs Snippet', url: $('share-url').value });
     } catch (err) { console.log("Share failed or cancelled"); }
   });
 
-  // WhatsApp Share
   $('btn-share-whatsapp').addEventListener('click', () => {
     const url = encodeURIComponent($('share-url').value);
     window.open(`https://wa.me/?text=Check out my code: ${url}`, '_blank');
@@ -993,7 +1055,6 @@ async function saveSnippet() {
   const title = $('snippet-title').value.trim() || 'Untitled Snippet';
   const code = cmEditor.getValue();
   const isPublic = $('snippet-public').checked;
-
   try {
     const res = await fetch(`${API_BASE}/snippets`, {
       method: 'POST',
@@ -1040,33 +1101,30 @@ function buildSidebarBtns() {
   themeBtn.addEventListener('click', toggleTheme);
   sidebar.appendChild(themeBtn);
 }
+
 function populateExamples() {
   const container = $('examples-container');
   if (!container) return;
   container.innerHTML = '';
-  
   EXAMPLES.forEach(ex => {
     const lang = LANGUAGES[ex.lang];
     if (!lang) return;
-    
     const card = document.createElement('div');
     card.className = 'example-card';
     card.innerHTML = `
       <div class="ex-title">${escapeHtml(ex.title)}</div>
       <div class="ex-lang"><span>${lang.icon}</span> ${lang.name}</div>
     `;
-    
-    // When an example is clicked: Switch language, set code, and close modal
     card.addEventListener('click', () => {
       setLanguage(ex.lang);
       cmEditor.setValue(ex.code);
       closeModal('examples-modal');
       showToast(`Loaded ${ex.title}`, 'success');
     });
-    
     container.appendChild(card);
   });
 }
+
 function bindResizeHandle() {
   const handle = $('resize-handle');
   const outputPane = $('output-pane');
@@ -1089,6 +1147,7 @@ function bindResizeHandle() {
 
 function openModal(id) { const el = $(id); if (el) el.classList.add('open'); }
 function closeModal(id) { const el = $(id); if (el) el.classList.remove('open'); }
+
 function showToast(msg, type = 'info') {
   const container = $('toast-container');
   const toast = document.createElement('div');
@@ -1103,38 +1162,24 @@ function escapeHtml(str) {
   if (!str) return '';
   return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
+
 // ── AI Assistant ──────────────────────────────────────────────────
-// ── AI Assistant ──────────────────────────────────────────────────
-// ── AI Assistant Chat Logic ──────────────────────────────────────────────
-let currentChatHistory = []; // Stores the ongoing conversation
+let currentChatHistory = [];
 
 async function askAI() {
   if (!cmEditor) return;
   const code = cmEditor.getValue().trim();
-  
-  if (!code) {
-    showToast('Please write some code first!', 'warning');
-    return;
-  }
+  if (!code) { showToast('Please write some code first!', 'warning'); return; }
 
-  // 1. Set up the initial context for Groq
   currentChatHistory = [
-    { 
-      role: "system", 
-      content: "You are a helpful coding tutor. Keep explanations short, formatted in markdown, and always end by asking the user what they want to do next." 
-    },
-    { 
-      role: "user", 
-      content: `Language: ${state.currentLang}\nCode:\n${code}\n\nExplain this code and suggest an improvement.` 
-    }
+    { role: "system", content: "You are a helpful coding tutor. Keep explanations short, formatted in markdown, and always end by asking the user what they want to do next." },
+    { role: "user", content: `Language: ${state.currentLang}\nCode:\n${code}\n\nExplain this code and suggest an improvement.` }
   ];
 
-  // 2. Open Modal and Reset UI
   openModal('ai-modal');
-  $('ai-chat-history').innerHTML = ''; 
+  $('ai-chat-history').innerHTML = '';
   $('ai-chat-input').value = '';
 
-  // 3. Show loading message and fetch
   appendChatMessage('AI', '<div class="spinner" style="border-top-color: var(--text-primary); width: 14px; height: 14px;"></div> Thinking...');
   await fetchAiResponse();
 }
@@ -1144,17 +1189,13 @@ async function fetchAiResponse() {
     const response = await fetch(`${API_BASE}/ai/chat`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ chatHistory: currentChatHistory }), // Send entire history
+      body: JSON.stringify({ chatHistory: currentChatHistory }),
     });
-
     const data = await response.json();
-    
-    // Remove the temporary "Thinking..." bubble
     const chatContainer = $('ai-chat-history');
     chatContainer.removeChild(chatContainer.lastChild);
-
     if (data.success) {
-      currentChatHistory.push(data.reply); // Save AI response to history
+      currentChatHistory.push(data.reply);
       appendChatMessage('AI', data.reply.content);
     } else {
       appendChatMessage('System', '❌ ' + (data.message || 'Analysis failed.'));
@@ -1168,7 +1209,6 @@ async function fetchAiResponse() {
 function appendChatMessage(sender, text) {
   const chatContainer = $('ai-chat-history');
   const msgDiv = document.createElement('div');
-  
   const isUser = sender === 'You';
   msgDiv.style.alignSelf = isUser ? 'flex-end' : 'flex-start';
   msgDiv.style.backgroundColor = isUser ? '#a371f7' : 'var(--bg-tertiary)';
@@ -1179,63 +1219,30 @@ function appendChatMessage(sender, text) {
   msgDiv.style.whiteSpace = 'pre-wrap';
   msgDiv.style.lineHeight = '1.6';
   msgDiv.style.border = isUser ? 'none' : '1px solid var(--border)';
-  
   msgDiv.innerHTML = `<strong style="font-size:11px; opacity:0.8; display:block; margin-bottom:4px; text-transform:uppercase;">${sender}</strong>${text}`;
-  
   chatContainer.appendChild(msgDiv);
-  chatContainer.scrollTop = chatContainer.scrollHeight; // Auto-scroll to newest message
+  chatContainer.scrollTop = chatContainer.scrollHeight;
 }
 
-// Bind the Send button inside the modal
+// Bind AI send button
 document.addEventListener('DOMContentLoaded', () => {
   const btnAiSend = $('btn-ai-send');
   const aiInput = $('ai-chat-input');
-  
   if (btnAiSend && aiInput) {
     const sendFollowUp = () => {
       const text = aiInput.value.trim();
       if (!text) return;
-      
-      // Add user text to screen and history
       appendChatMessage('You', text);
       currentChatHistory.push({ role: 'user', content: text });
       aiInput.value = '';
-      
-      // Show loading and fetch AI reply
       appendChatMessage('AI', '<div class="spinner" style="border-top-color: var(--text-primary); width: 14px; height: 14px;"></div> Thinking...');
       fetchAiResponse();
     };
-
     btnAiSend.addEventListener('click', sendFollowUp);
-    aiInput.addEventListener('keypress', (e) => {
-      if (e.key === 'Enter') sendFollowUp();
-    });
+    aiInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') sendFollowUp(); });
   }
 });
+
 window.runCode = runCode;
 window.setLanguage = setLanguage;
 window.jumpToLine = jumpToLine;
-// ── Snippet Share URL Loader ──────────────────────────────────────
-// When someone opens /snippet/:id, fetch and load that snippet
-(async () => {
-  const match = window.location.pathname.match(/^\/snippet\/([a-zA-Z0-9]+)$/);
-  if (!match) return;
-
-  const id = match[1];
-  try {
-    const res = await fetch(`${API_BASE}/snippets/${id}`);
-    const data = await res.json();
-    if (data.success && data.snippet) {
-      const s = data.snippet;
-      // Set language
-      const langBtn = document.querySelector(`[data-lang="${s.language}"]`);
-      if (langBtn) langBtn.click();
-      // Set code in editor
-      if (window.editor) window.editor.setValue(s.source_code);
-      // Show snippet title
-      if (s.title) document.title = `${s.title} — CodeCraft`;
-    }
-  } catch (e) {
-    console.warn('Could not load shared snippet:', e);
-  }
-})();
