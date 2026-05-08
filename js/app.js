@@ -1,7 +1,7 @@
 // frontend/js/app.js
 // ── CodeCraft Main Application ────────────────────────────────────
 
-const API_BASE = '/api';
+const API_BASE = 'http://localhost:5000/api';
 
 // ── State ─────────────────────────────────────────────────────────
 const state = {
@@ -1215,3 +1215,27 @@ document.addEventListener('DOMContentLoaded', () => {
 window.runCode = runCode;
 window.setLanguage = setLanguage;
 window.jumpToLine = jumpToLine;
+// ── Snippet Share URL Loader ──────────────────────────────────────
+// When someone opens /snippet/:id, fetch and load that snippet
+(async () => {
+  const match = window.location.pathname.match(/^\/snippet\/([a-zA-Z0-9]+)$/);
+  if (!match) return;
+
+  const id = match[1];
+  try {
+    const res = await fetch(`${API_BASE}/snippets/${id}`);
+    const data = await res.json();
+    if (data.success && data.snippet) {
+      const s = data.snippet;
+      // Set language
+      const langBtn = document.querySelector(`[data-lang="${s.language}"]`);
+      if (langBtn) langBtn.click();
+      // Set code in editor
+      if (window.editor) window.editor.setValue(s.source_code);
+      // Show snippet title
+      if (s.title) document.title = `${s.title} — CodeCraft`;
+    }
+  } catch (e) {
+    console.warn('Could not load shared snippet:', e);
+  }
+})();
