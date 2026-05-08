@@ -1,14 +1,16 @@
-// backend/server.js
+// server.js
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
+const path = require('path');
 const rateLimit = require('express-rate-limit');
 const { testConnection } = require('./config/database');
 const { errorHandler, notFound } = require('./middleware/errorHandler');
 const Groq = require('groq-sdk');
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+
 // Route imports
 const codeRoutes = require('./routes/codeRoutes');
 const snippetRoutes = require('./routes/snippetRoutes');
@@ -24,7 +26,7 @@ const allowedOrigins = (process.env.ALLOWED_ORIGINS || '').split(',').concat([
   'http://localhost:3000',
   'http://127.0.0.1:5500',
   'http://localhost:5500',
-  'null', // file:// protocol
+  'null',
 ]);
 
 app.use(cors({
@@ -32,7 +34,7 @@ app.use(cors({
     if (!origin || allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
-      callback(null, true); // Allow all in dev — restrict in production
+      callback(null, true);
     }
   },
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
@@ -47,8 +49,8 @@ const limiter = rateLimit({
 });
 
 const codeLimiter = rateLimit({
-  windowMs: 60 * 1000, // 1 minute
-  max: 20,             // max 20 runs per minute
+  windowMs: 60 * 1000,
+  max: 20,
   message: { success: false, message: 'Too many code executions. Please wait.' },
 });
 
@@ -64,8 +66,16 @@ if (process.env.NODE_ENV !== 'test') {
   app.use(morgan('dev'));
 }
 
-// ─── Static Files (Frontend) ──────────────────────────────────────────────────
+// ─── Static Files ─────────────────────────────────────────────────────────────
+// On Hostinger, all files (frontend + backend) are inside the nodejs/ folder.
+// __dirname points to nodejs/ so we serve from here directly.
 app.use(express.static(__dirname));
+
+// ─── Root Route ───────────────────────────────────────────────────────────────
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'index.html'));
+});
+
 // ─── Health Check ─────────────────────────────────────────────────────────────
 app.get('/api/health', (req, res) => {
   res.json({
@@ -75,41 +85,52 @@ app.get('/api/health', (req, res) => {
     timestamp: new Date().toISOString(),
   });
 });
-// ── AI Chat Assistant Route ──
+
+// ─── AI Chat Assistant Route ──────────────────────────────────────────────────
 app.post('/api/ai/chat', async (req, res) => {
   const { chatHistory } = req.body;
-  
+
   if (!chatHistory || chatHistory.length === 0) {
-    return res.status(400).json({ success: false, message: "No conversation history provided" });
+    return res.status(400).json({ success: false, message: 'No conversation history provided' });
   }
 
   try {
     const chatCompletion = await groq.chat.completions.create({
-      messages: chatHistory, // Passes the entire back-and-forth conversation
-      model: "llama-3.1-8b-instant", 
+      messages: chatHistory,
+      model: 'llama-3.1-8b-instant',
       temperature: 0.5,
     });
 
-    res.json({ 
-      success: true, 
-      reply: chatCompletion.choices[0].message // Returns the AI's specific reply message
+    res.json({
+      success: true,
+      reply: chatCompletion.choices[0].message,
     });
   } catch (error) {
-    console.error("Groq API Error:", error);
-    res.status(500).json({ success: false, message: "AI Assistant is currently unavailable." });
+    console.error('Groq API Error:', error);
+    res.status(500).json({ success: false, message: 'AI Assistant is currently unavailable.' });
   }
 });
+
 // ─── API Routes ───────────────────────────────────────────────────────────────
 app.use('/api/code', codeRoutes);
 app.use('/api/snippets', snippetRoutes);
 
 // ─── Error Handling ───────────────────────────────────────────────────────────
+// Serve index.html for snippet share URLs — frontend handles the rendering
+app.get("/snippet/:id", (req, res) => {
+  res.sendFile(path.join(__dirname, "index.html"));
+});
+
 app.use(notFound);
 app.use(errorHandler);
 
 // ─── Start Server ─────────────────────────────────────────────────────────────
 const startServer = async () => {
-  await testConnection();
+  // FIX: .catch() prevents DB error from crashing the whole server (was causing 503)
+  await testConnection().catch(err =>
+    console.warn('⚠️  DB connection warning:', err.message)
+  );
+
   app.listen(PORT, () => {
     console.log('\n╔══════════════════════════════════════════╗');
     console.log('║         CodeCraft API Server              ║');
