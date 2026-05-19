@@ -107,7 +107,7 @@ body {
 
 .logo { display: flex; align-items: center; gap: 8px; text-decoration: none; flex-shrink: 0; }
 .logo-icon { width: 30px; height: 30px; border-radius: 50%; object-fit: cover; flex-shrink: 0; }
-.logo-text { font-weight: 700; font-size: 15px; color: var(--text-primary); letter-spacing: -0.3px; }
+.logo-text { font-weight: 700; font-size: 20px; color: var(--text-primary); letter-spacing: -0.3px; }
 .logo-text span { color: var(--accent-blue); }
 
 .topbar-center {
